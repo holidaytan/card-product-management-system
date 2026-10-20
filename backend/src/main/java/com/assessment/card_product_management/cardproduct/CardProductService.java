@@ -12,15 +12,24 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 @Service
 public class CardProductService {
 
     public static final int PAGE_SIZE = 10;
 
     private final CardProductRepository cardProductRepository;
+    private final IdempotencyRecordRepository idempotencyRecordRepository;
 
-    public CardProductService(CardProductRepository cardProductRepository) {
+    public CardProductService(
+            CardProductRepository cardProductRepository,
+            IdempotencyRecordRepository idempotencyRecordRepository
+    ) {
         this.cardProductRepository = cardProductRepository;
+        this.idempotencyRecordRepository = idempotencyRecordRepository;
     }
 
     @Transactional(readOnly = true)
@@ -42,12 +51,39 @@ public class CardProductService {
 
     @Transactional
     public CardProductResponse createCardProduct(CreateCardProductRequest request) {
+        return createCardProduct(request, null);
+    }
+
+    @Transactional
+    public CardProductResponse createCardProduct(CreateCardProductRequest request, String idempotencyKey) {
+        String requestHash = idempotencyKey == null ? null : requestHash(request);
+        if (idempotencyKey != null) {
+            var existingRecord = idempotencyRecordRepository.findById(idempotencyKey);
+            if (existingRecord.isPresent()) {
+                if (!existingRecord.get().getRequestHash().equals(requestHash)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Idempotency-Key was already used with a different request"
+                    );
+                }
+                return CardProductResponse.from(existingRecord.get().getCardProduct());
+            }
+        }
+
         CardProduct product = new CardProduct(
                 request.productName().trim(),
                 request.cardType(),
                 request.quantity()
         );
-        return CardProductResponse.from(cardProductRepository.save(product));
+        CardProduct savedProduct = cardProductRepository.saveAndFlush(product);
+
+        if (idempotencyKey != null) {
+            idempotencyRecordRepository.saveAndFlush(
+                    new IdempotencyRecord(idempotencyKey, requestHash, savedProduct)
+            );
+        }
+
+        return CardProductResponse.from(savedProduct);
     }
 
     @Transactional
@@ -66,5 +102,21 @@ public class CardProductService {
         CardProduct product = cardProductRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
         cardProductRepository.delete(product);
+    }
+
+    private String requestHash(CreateCardProductRequest request) {
+        String normalizedRequest = String.join(
+                "|",
+                request.productName().trim(),
+                request.cardType().name(),
+                request.quantity().toString()
+        );
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(normalizedRequest.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 }
