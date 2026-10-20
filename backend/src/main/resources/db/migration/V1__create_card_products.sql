@@ -1,4 +1,4 @@
-CREATE TABLE dbo.card_products (
+CREATE TABLE card_products (
     id BIGINT IDENTITY(1, 1) NOT NULL,
     product_name NVARCHAR(150) NOT NULL,
     card_type VARCHAR(20) NOT NULL,
