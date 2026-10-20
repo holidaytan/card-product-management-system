@@ -4,6 +4,9 @@ import com.assessment.card_product_management.cardproduct.dto.CardProductPageRes
 import com.assessment.card_product_management.cardproduct.dto.CardProductResponse;
 import com.assessment.card_product_management.cardproduct.dto.CreateCardProductRequest;
 import com.assessment.card_product_management.cardproduct.dto.UpdateCardProductRequest;
+import com.assessment.card_product_management.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.data.domain.Page;
@@ -33,6 +36,7 @@ public class CardProductService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, key = "#page", sync = true)
     public CardProductPageResponse getCardProducts(int page) {
         Page<CardProduct> products = cardProductRepository.findAll(
                 PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.ASC, "id"))
@@ -55,6 +59,7 @@ public class CardProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, allEntries = true)
     public CardProductResponse createCardProduct(CreateCardProductRequest request, String idempotencyKey) {
         String requestHash = idempotencyKey == null ? null : requestHash(request);
         if (idempotencyKey != null) {
@@ -87,6 +92,7 @@ public class CardProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, allEntries = true)
     public CardProductResponse updateCardProduct(long id, UpdateCardProductRequest request) {
         CardProduct product = cardProductRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
@@ -98,6 +104,7 @@ public class CardProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, allEntries = true)
     public void deleteCardProduct(long id) {
         CardProduct product = cardProductRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
