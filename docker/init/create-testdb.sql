@@ -1,0 +1,13 @@
+USE master;
+GO
+
+IF DB_ID(N'TESTDB') IS NULL
+BEGIN
+    EXEC(N'CREATE DATABASE TESTDB');
+END;
+GO
+
+SELECT name
+FROM sys.databases
+WHERE name = N'TESTDB';
+GO
