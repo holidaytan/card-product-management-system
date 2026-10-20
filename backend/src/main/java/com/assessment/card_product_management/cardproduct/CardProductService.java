@@ -60,4 +60,11 @@ public class CardProductService {
         product.update(request.productName().trim(), request.cardType(), request.quantity());
         return CardProductResponse.from(cardProductRepository.saveAndFlush(product));
     }
+
+    @Transactional
+    public void deleteCardProduct(long id) {
+        CardProduct product = cardProductRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
+        cardProductRepository.delete(product);
+    }
 }
