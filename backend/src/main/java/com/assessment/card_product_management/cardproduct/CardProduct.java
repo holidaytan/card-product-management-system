@@ -52,6 +52,13 @@ public class CardProduct {
         this.updatedAt = this.createdAt;
     }
 
+    public void update(String productName, CardType cardType, int quantity) {
+        this.productName = productName;
+        this.cardType = cardType;
+        this.quantity = quantity;
+        this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
+    }
+
     public Long getId() {
         return id;
     }

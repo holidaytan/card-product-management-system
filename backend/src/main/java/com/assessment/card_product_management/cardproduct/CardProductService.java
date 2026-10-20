@@ -3,6 +3,9 @@ package com.assessment.card_product_management.cardproduct;
 import com.assessment.card_product_management.cardproduct.dto.CardProductPageResponse;
 import com.assessment.card_product_management.cardproduct.dto.CardProductResponse;
 import com.assessment.card_product_management.cardproduct.dto.CreateCardProductRequest;
+import com.assessment.card_product_management.cardproduct.dto.UpdateCardProductRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -45,5 +48,16 @@ public class CardProductService {
                 request.quantity()
         );
         return CardProductResponse.from(cardProductRepository.save(product));
+    }
+
+    @Transactional
+    public CardProductResponse updateCardProduct(long id, UpdateCardProductRequest request) {
+        CardProduct product = cardProductRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
+        if (!product.getVersion().equals(request.version())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Card product has been modified; refresh and retry");
+        }
+        product.update(request.productName().trim(), request.cardType(), request.quantity());
+        return CardProductResponse.from(cardProductRepository.saveAndFlush(product));
     }
 }
