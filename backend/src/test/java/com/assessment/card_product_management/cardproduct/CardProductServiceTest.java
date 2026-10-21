@@ -71,6 +71,26 @@ class CardProductServiceTest {
     }
 
     @Test
+    void returnsProductById() {
+        when(cardProductRepository.findById(1L)).thenReturn(Optional.of(product(1L, 0L)));
+
+        var response = cardProductService.getCardProduct(1L);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.productName()).isEqualTo("Everyday Debit");
+    }
+
+    @Test
+    void returnsNotFoundWhenRetrievingMissingProduct() {
+        when(cardProductRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> cardProductService.getCardProduct(99L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void rejectsUpdateWhenClientVersionIsStale() {
         CardProduct product = product(1L, 3L);
         when(cardProductRepository.findById(1L)).thenReturn(Optional.of(product));

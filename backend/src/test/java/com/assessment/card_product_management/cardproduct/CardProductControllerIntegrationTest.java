@@ -49,6 +49,20 @@ class CardProductControllerIntegrationTest {
     }
 
     @Test
+    void getCardProductReturnsTheProduct() throws Exception {
+        when(cardProductService.getCardProduct(1L)).thenReturn(
+                new CardProductResponse(1L, "Everyday Debit", CardType.DEBIT, 5, null, null, 0L)
+        );
+
+        mockMvc.perform(get("/api/v1/card-products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.productName").value("Everyday Debit"));
+
+        verify(cardProductService).getCardProduct(1L);
+    }
+
+    @Test
     void createCardProductRejectsInvalidInput() throws Exception {
         mockMvc.perform(post("/api/v1/card-products")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -58,6 +58,13 @@ public class CardProductService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public CardProductResponse getCardProduct(long id) {
+        CardProduct product = cardProductRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
+        return CardProductResponse.from(product);
+    }
+
     @Transactional
     public CardProductResponse createCardProduct(CreateCardProductRequest request) {
         return createCardProduct(request, null);

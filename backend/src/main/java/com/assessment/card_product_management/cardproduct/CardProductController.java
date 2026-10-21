@@ -38,6 +38,11 @@ public class CardProductController {
         return ResponseEntity.ok(cardProductService.getCardProducts(page));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<CardProductResponse> getCardProduct(@PathVariable @Min(1) long id) {
+        return ResponseEntity.ok(cardProductService.getCardProduct(id));
+    }
+
     @PostMapping
     public ResponseEntity<CardProductResponse> createCardProduct(
             @Valid @RequestBody CreateCardProductRequest request,
