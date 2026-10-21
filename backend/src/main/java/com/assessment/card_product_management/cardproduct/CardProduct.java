@@ -11,11 +11,13 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "card_products", schema = "dbo")
 public class CardProduct {
+
+    private static final ZoneId MALAYSIA_TIME_ZONE = ZoneId.of("Asia/Kuala_Lumpur");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,7 +50,7 @@ public class CardProduct {
         this.productName = productName;
         this.cardType = cardType;
         this.quantity = quantity;
-        this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
+        this.createdAt = LocalDateTime.now(MALAYSIA_TIME_ZONE);
         this.updatedAt = this.createdAt;
     }
 
@@ -56,7 +58,7 @@ public class CardProduct {
         this.productName = productName;
         this.cardType = cardType;
         this.quantity = quantity;
-        this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
+        this.updatedAt = LocalDateTime.now(MALAYSIA_TIME_ZONE);
     }
 
     public Long getId() {

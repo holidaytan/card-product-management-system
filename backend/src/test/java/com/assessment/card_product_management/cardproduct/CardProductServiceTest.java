@@ -17,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -99,6 +101,17 @@ class CardProductServiceTest {
         cardProductService.deleteCardProduct(4L);
 
         verify(cardProductRepository).delete(product);
+    }
+
+    @Test
+    void createsTimestampsInMalaysiaTime() {
+        LocalDateTime beforeCreation = LocalDateTime.now(ZoneId.of("Asia/Kuala_Lumpur")).minusSeconds(1);
+
+        CardProduct product = new CardProduct("Everyday Debit", CardType.DEBIT, 5);
+
+        LocalDateTime afterCreation = LocalDateTime.now(ZoneId.of("Asia/Kuala_Lumpur")).plusSeconds(1);
+        assertThat(product.getCreatedAt()).isBetween(beforeCreation, afterCreation);
+        assertThat(product.getUpdatedAt()).isEqualTo(product.getCreatedAt());
     }
 
     private CardProduct product(long id, long version) {
