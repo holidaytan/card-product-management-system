@@ -10,6 +10,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,7 +34,11 @@ class CardProductIdempotencyTest {
 
     @BeforeEach
     void setUp() {
-        cardProductService = new CardProductService(cardProductRepository, idempotencyRecordRepository);
+        cardProductService = new CardProductService(
+                cardProductRepository,
+                idempotencyRecordRepository,
+                Clock.fixed(Instant.parse("2026-10-21T02:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"))
+        );
     }
 
     @Test
@@ -63,7 +70,12 @@ class CardProductIdempotencyTest {
     }
 
     private CardProduct product(long id) {
-        CardProduct product = new CardProduct("Everyday Debit", CardType.DEBIT, 5);
+        CardProduct product = new CardProduct(
+                "Everyday Debit",
+                CardType.DEBIT,
+                5,
+                java.time.LocalDateTime.of(2026, 10, 21, 10, 0)
+        );
         ReflectionTestUtils.setField(product, "id", id);
         return product;
     }

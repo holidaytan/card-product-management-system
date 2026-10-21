@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.LocalDateTime;
 
 @Service
 public class CardProductService {
@@ -26,13 +28,16 @@ public class CardProductService {
 
     private final CardProductRepository cardProductRepository;
     private final IdempotencyRecordRepository idempotencyRecordRepository;
+    private final Clock applicationClock;
 
     public CardProductService(
             CardProductRepository cardProductRepository,
-            IdempotencyRecordRepository idempotencyRecordRepository
+            IdempotencyRecordRepository idempotencyRecordRepository,
+            Clock applicationClock
     ) {
         this.cardProductRepository = cardProductRepository;
         this.idempotencyRecordRepository = idempotencyRecordRepository;
+        this.applicationClock = applicationClock;
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +83,8 @@ public class CardProductService {
         CardProduct product = new CardProduct(
                 request.productName().trim(),
                 request.cardType(),
-                request.quantity()
+                request.quantity(),
+                LocalDateTime.now(applicationClock)
         );
         CardProduct savedProduct = cardProductRepository.saveAndFlush(product);
 
@@ -99,7 +105,12 @@ public class CardProductService {
         if (!product.getVersion().equals(request.version())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Card product has been modified; refresh and retry");
         }
-        product.update(request.productName().trim(), request.cardType(), request.quantity());
+        product.update(
+                request.productName().trim(),
+                request.cardType(),
+                request.quantity(),
+                LocalDateTime.now(applicationClock)
+        );
         return CardProductResponse.from(cardProductRepository.saveAndFlush(product));
     }
 

@@ -17,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -40,7 +42,11 @@ class CardProductServiceTest {
 
     @BeforeEach
     void setUp() {
-        cardProductService = new CardProductService(cardProductRepository, idempotencyRecordRepository);
+        cardProductService = new CardProductService(
+                cardProductRepository,
+                idempotencyRecordRepository,
+                Clock.fixed(Instant.parse("2026-10-21T02:00:00Z"), ZoneId.of("Asia/Kuala_Lumpur"))
+        );
     }
 
     @Test
@@ -104,18 +110,25 @@ class CardProductServiceTest {
     }
 
     @Test
-    void createsTimestampsInMalaysiaTime() {
-        LocalDateTime beforeCreation = LocalDateTime.now(ZoneId.of("Asia/Kuala_Lumpur")).minusSeconds(1);
+    void createsTimestampsUsingTheConfiguredClock() {
+        when(cardProductRepository.saveAndFlush(any(CardProduct.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        CardProduct product = new CardProduct("Everyday Debit", CardType.DEBIT, 5);
+        var response = cardProductService.createCardProduct(
+                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5)
+        );
 
-        LocalDateTime afterCreation = LocalDateTime.now(ZoneId.of("Asia/Kuala_Lumpur")).plusSeconds(1);
-        assertThat(product.getCreatedAt()).isBetween(beforeCreation, afterCreation);
-        assertThat(product.getUpdatedAt()).isEqualTo(product.getCreatedAt());
+        assertThat(response.createdAt()).isEqualTo(LocalDateTime.of(2026, 10, 21, 10, 0));
+        assertThat(response.updatedAt()).isEqualTo(response.createdAt());
     }
 
     private CardProduct product(long id, long version) {
-        CardProduct product = new CardProduct("Everyday Debit", CardType.DEBIT, 5);
+        CardProduct product = new CardProduct(
+                "Everyday Debit",
+                CardType.DEBIT,
+                5,
+                LocalDateTime.of(2026, 10, 21, 10, 0)
+        );
         ReflectionTestUtils.setField(product, "id", id);
         ReflectionTestUtils.setField(product, "version", version);
         return product;

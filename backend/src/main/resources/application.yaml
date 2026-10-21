@@ -23,6 +23,9 @@ spring:
     clean-disabled: true
     validate-migration-naming: true
 
+app:
+  time-zone: ${APP_TIME_ZONE:Asia/Kuala_Lumpur}
+
 logging:
   file:
     name: ${LOG_FILE:logs/card-product-management.log}
