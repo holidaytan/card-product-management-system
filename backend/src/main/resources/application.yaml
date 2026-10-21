@@ -25,6 +25,12 @@ spring:
 
 app:
   time-zone: ${APP_TIME_ZONE:Asia/Kuala_Lumpur}
+  exchange-rates:
+    provider-base-url: ${EXCHANGE_RATE_PROVIDER_BASE_URL:https://api.frankfurter.dev}
+    connect-timeout: ${EXCHANGE_RATE_CONNECT_TIMEOUT:2s}
+    read-timeout: ${EXCHANGE_RATE_READ_TIMEOUT:5s}
+    currency-cache-ttl: ${EXCHANGE_RATE_CURRENCY_CACHE_TTL:24h}
+    rate-cache-ttl: ${EXCHANGE_RATE_CACHE_TTL:1h}
 
 logging:
   file:
