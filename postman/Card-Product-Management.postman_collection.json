@@ -1,96 +1,84 @@
 {
   "info": {
     "name": "Card Product Management API",
-    "description": "CRUD requests for the local Card Product Management Spring Boot API.",
+    "description": "Import this collection, start the backend on port 8080, then run the requests in order. Set productId and version after creating a product.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080"
-    },
-    {
-      "key": "productId",
-      "value": ""
-    },
-    {
-      "key": "productVersion",
-      "value": "0"
-    }
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "productId", "value": "1" },
+    { "key": "version", "value": "0" },
+    { "key": "idempotencyKey", "value": "postman-create-001" }
   ],
   "item": [
     {
-      "name": "List card products (page 1)",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/v1/card-products?page=0"
-      },
-      "event": [
+      "name": "Card products",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('returns 200', () => pm.response.to.have.status(200));",
-              "pm.test('returns at most 10 products', () => pm.expect(pm.response.json().content.length).to.be.at.most(10));"
-            ]
+          "name": "List products - page 1",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=0" }
+        },
+        {
+          "name": "Get product by ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products/{{productId}}" }
+        },
+        {
+          "name": "Create credit card product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Postman Rewards Card\",\n  \"cardType\": \"CREDIT\",\n  \"quantity\": 25,\n  \"annualFee\": 100.00,\n  \"annualInterestRate\": 15.00\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/card-products"
           }
+        },
+        {
+          "name": "Update product",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Postman Rewards Card Updated\",\n  \"cardType\": \"CREDIT\",\n  \"quantity\": 30,\n  \"annualFee\": 120.00,\n  \"annualInterestRate\": 15.50,\n  \"version\": {{version}}\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/card-products/{{productId}}"
+          }
+        },
+        {
+          "name": "Delete product",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/card-products/{{productId}}" }
         }
       ]
     },
     {
-      "name": "Create card product",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"productName\": \"Postman Validation Card {{$timestamp}}\",\n  \"cardType\": \"CREDIT\",\n  \"quantity\": 25\n}"
+      "name": "Exchange rates",
+      "item": [
+        {
+          "name": "List available currencies",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates/currencies" }
         },
-        "url": "{{baseUrl}}/api/v1/card-products"
-      },
-      "event": [{ "listen": "test", "script": { "exec": [
-        "pm.test('returns 201', () => pm.response.to.have.status(201));",
-        "const product = pm.response.json();",
-        "pm.collectionVariables.set('productId', product.id);",
-        "pm.collectionVariables.set('productVersion', product.version);"
-      ]}}]
-    },
-    {
-      "name": "Get created card product by ID",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/v1/card-products/{{productId}}"
-      },
-      "event": [{ "listen": "test", "script": { "exec": [
-        "pm.test('returns 200', () => pm.response.to.have.status(200));",
-        "pm.test('returns the created product', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('productId'))));"
-      ]}}]
-    },
-    {
-      "name": "Update created card product",
-      "request": {
-        "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"productName\": \"Postman Updated Card\",\n  \"cardType\": \"DEBIT\",\n  \"quantity\": 30,\n  \"version\": {{productVersion}}\n}"
+        {
+          "name": "MYR to USD",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates?to=USD" }
         },
-        "url": "{{baseUrl}}/api/v1/card-products/{{productId}}"
-      },
-      "event": [{ "listen": "test", "script": { "exec": [
-        "pm.test('returns 200', () => pm.response.to.have.status(200));",
-        "pm.collectionVariables.set('productVersion', pm.response.json().version);"
-      ]}}]
-    },
-    {
-      "name": "Delete created card product",
-      "request": {
-        "method": "DELETE",
-        "url": "{{baseUrl}}/api/v1/card-products/{{productId}}"
-      },
-      "event": [{ "listen": "test", "script": { "exec": [
-        "pm.test('returns 204', () => pm.response.to.have.status(204));"
-      ]}}]
+        {
+          "name": "MYR to SGD",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates?to=SGD" }
+        },
+        {
+          "name": "MYR to MYR",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates?to=MYR" }
+        },
+        {
+          "name": "Invalid currency code",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates?to=US" }
+        }
+      ]
     }
   ]
 }

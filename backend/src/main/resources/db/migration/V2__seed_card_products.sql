@@ -1,4 +1,4 @@
-INSERT INTO card_products (product_name, card_type, quantity)
+INSERT INTO dbo.card_products (product_name, card_type, quantity)
 VALUES
     (N'Classic Credit Card', 'CREDIT', 250),
     (N'Gold Credit Card', 'CREDIT', 180),

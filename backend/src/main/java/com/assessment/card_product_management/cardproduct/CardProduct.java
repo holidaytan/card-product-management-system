@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "card_products", schema = "dbo")
@@ -30,6 +31,15 @@ public class CardProduct {
     @Column(nullable = false)
     private int quantity;
 
+    @Column(name = "annual_fee", nullable = false, precision = 12, scale = 2)
+    private BigDecimal annualFee;
+
+    @Column(name = "annual_interest_rate", precision = 5, scale = 2)
+    private BigDecimal annualInterestRate;
+
+    @Column(name = "currency_code", nullable = false, length = 3, updatable = false)
+    private String currencyCode;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -43,18 +53,37 @@ public class CardProduct {
     protected CardProduct() {
     }
 
-    public CardProduct(String productName, CardType cardType, int quantity, LocalDateTime timestamp) {
+    public CardProduct(
+            String productName,
+            CardType cardType,
+            int quantity,
+            BigDecimal annualFee,
+            BigDecimal annualInterestRate,
+            LocalDateTime timestamp
+    ) {
         this.productName = productName;
         this.cardType = cardType;
         this.quantity = quantity;
+        this.annualFee = annualFee;
+        this.annualInterestRate = annualInterestRate;
+        this.currencyCode = "MYR";
         this.createdAt = timestamp;
         this.updatedAt = this.createdAt;
     }
 
-    public void update(String productName, CardType cardType, int quantity, LocalDateTime timestamp) {
+    public void update(
+            String productName,
+            CardType cardType,
+            int quantity,
+            BigDecimal annualFee,
+            BigDecimal annualInterestRate,
+            LocalDateTime timestamp
+    ) {
         this.productName = productName;
         this.cardType = cardType;
         this.quantity = quantity;
+        this.annualFee = annualFee;
+        this.annualInterestRate = annualInterestRate;
         this.updatedAt = timestamp;
     }
 
@@ -72,6 +101,18 @@ public class CardProduct {
 
     public int getQuantity() {
         return quantity;
+    }
+
+    public BigDecimal getAnnualFee() {
+        return annualFee;
+    }
+
+    public BigDecimal getAnnualInterestRate() {
+        return annualInterestRate;
+    }
+
+    public String getCurrencyCode() {
+        return currencyCode;
     }
 
     public LocalDateTime getCreatedAt() {

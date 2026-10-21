@@ -1,5 +1,8 @@
 package com.assessment.card_product_management.error;
 
+import com.assessment.card_product_management.exchangerate.ExchangeRateProviderTimeoutException;
+import com.assessment.card_product_management.exchangerate.ExchangeRateProviderUnavailableException;
+import com.assessment.card_product_management.exchangerate.UnavailableCurrencyPairException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -76,6 +79,30 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
                 "Request conflicts with the current data state"
+        );
+    }
+
+    @ExceptionHandler(UnavailableCurrencyPairException.class)
+    ProblemDetail handleUnavailableCurrencyPair() {
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                "No current MYR exchange rate is available for the requested currency"
+        );
+    }
+
+    @ExceptionHandler(ExchangeRateProviderUnavailableException.class)
+    ProblemDetail handleExchangeRateProviderUnavailable() {
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Exchange-rate provider is currently unavailable"
+        );
+    }
+
+    @ExceptionHandler(ExchangeRateProviderTimeoutException.class)
+    ProblemDetail handleExchangeRateProviderTimeout() {
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.GATEWAY_TIMEOUT,
+                "Exchange-rate provider timed out"
         );
     }
 }

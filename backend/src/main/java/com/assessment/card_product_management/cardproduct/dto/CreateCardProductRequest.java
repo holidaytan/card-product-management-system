@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
+
 public record CreateCardProductRequest(
         @NotBlank(message = "productName is required")
         @Size(max = 150, message = "productName must not exceed 150 characters")
@@ -16,6 +18,14 @@ public record CreateCardProductRequest(
 
         @NotNull(message = "quantity is required")
         @PositiveOrZero(message = "quantity must be zero or greater")
-        Integer quantity
+        Integer quantity,
+
+        @NotNull(message = "annualFee is required")
+        @PositiveOrZero(message = "annualFee must be zero or greater")
+        BigDecimal annualFee,
+
+        @PositiveOrZero(message = "annualInterestRate must be zero or greater")
+        @jakarta.validation.constraints.DecimalMax(value = "100.00", message = "annualInterestRate must not exceed 100")
+        BigDecimal annualInterestRate
 ) {
 }

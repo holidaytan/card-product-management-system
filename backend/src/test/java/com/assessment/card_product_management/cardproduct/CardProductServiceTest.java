@@ -21,6 +21,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -97,7 +98,7 @@ class CardProductServiceTest {
 
         assertThatThrownBy(() -> cardProductService.updateCardProduct(
                 1L,
-                new UpdateCardProductRequest("Updated name", CardType.CREDIT, 5, 2L)
+                new UpdateCardProductRequest("Updated name", CardType.CREDIT, 5, new BigDecimal("100.00"), new BigDecimal("15.00"), 2L)
         ))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
@@ -112,7 +113,7 @@ class CardProductServiceTest {
 
         assertThatThrownBy(() -> cardProductService.updateCardProduct(
                 99L,
-                new UpdateCardProductRequest("Updated name", CardType.CREDIT, 5, 0L)
+                new UpdateCardProductRequest("Updated name", CardType.CREDIT, 5, new BigDecimal("100.00"), new BigDecimal("15.00"), 0L)
         ))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
@@ -135,11 +136,24 @@ class CardProductServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = cardProductService.createCardProduct(
-                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5)
+                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5, BigDecimal.ZERO, null)
         );
 
         assertThat(response.createdAt()).isEqualTo(LocalDateTime.of(2026, 10, 21, 10, 0));
         assertThat(response.updatedAt()).isEqualTo(response.createdAt());
+        assertThat(response.annualFee()).isZero();
+        assertThat(response.annualInterestRate()).isNull();
+        assertThat(response.currencyCode()).isEqualTo("MYR");
+    }
+
+    @Test
+    void rejectsInterestRateForDebitProduct() {
+        assertThatThrownBy(() -> cardProductService.createCardProduct(
+                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5, BigDecimal.ZERO, new BigDecimal("15.00"))
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     private CardProduct product(long id, long version) {
@@ -147,6 +161,8 @@ class CardProductServiceTest {
                 "Everyday Debit",
                 CardType.DEBIT,
                 5,
+                BigDecimal.ZERO,
+                null,
                 LocalDateTime.of(2026, 10, 21, 10, 0)
         );
         ReflectionTestUtils.setField(product, "id", id);

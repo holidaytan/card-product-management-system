@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +44,7 @@ class CardProductIdempotencyTest {
 
     @Test
     void returnsTheOriginalProductForAnIdempotentReplay() {
-        CreateCardProductRequest request = new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5);
+        CreateCardProductRequest request = new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5, BigDecimal.ZERO, null);
         CardProduct product = product(7L);
         IdempotencyRecord record = new IdempotencyRecord("request-123", requestHash(request), product);
         when(idempotencyRecordRepository.findById("request-123")).thenReturn(Optional.of(record));
@@ -56,12 +57,29 @@ class CardProductIdempotencyTest {
 
     @Test
     void rejectsAnIdempotencyKeyReusedForADifferentRequest() {
-        CreateCardProductRequest originalRequest = new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5);
+        CreateCardProductRequest originalRequest = new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5, BigDecimal.ZERO, null);
         IdempotencyRecord record = new IdempotencyRecord("request-123", requestHash(originalRequest), product(7L));
         when(idempotencyRecordRepository.findById("request-123")).thenReturn(Optional.of(record));
 
         assertThatThrownBy(() -> cardProductService.createCardProduct(
-                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 6),
+                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 6, BigDecimal.ZERO, null),
+                "request-123"
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode().value())
+                .isEqualTo(409);
+    }
+
+    @Test
+    void rejectsAnIdempotencyKeyReusedWithDifferentPricing() {
+        CreateCardProductRequest originalRequest = new CreateCardProductRequest(
+                "Everyday Debit", CardType.DEBIT, 5, BigDecimal.ZERO, null
+        );
+        IdempotencyRecord record = new IdempotencyRecord("request-123", requestHash(originalRequest), product(7L));
+        when(idempotencyRecordRepository.findById("request-123")).thenReturn(Optional.of(record));
+
+        assertThatThrownBy(() -> cardProductService.createCardProduct(
+                new CreateCardProductRequest("Everyday Debit", CardType.DEBIT, 5, new BigDecimal("10.00"), null),
                 "request-123"
         ))
                 .isInstanceOf(ResponseStatusException.class)
@@ -74,6 +92,8 @@ class CardProductIdempotencyTest {
                 "Everyday Debit",
                 CardType.DEBIT,
                 5,
+                BigDecimal.ZERO,
+                null,
                 java.time.LocalDateTime.of(2026, 10, 21, 10, 0)
         );
         ReflectionTestUtils.setField(product, "id", id);
@@ -82,7 +102,9 @@ class CardProductIdempotencyTest {
 
     private String requestHash(CreateCardProductRequest request) {
         try {
-            byte[] value = (request.productName().trim() + "|" + request.cardType().name() + "|" + request.quantity())
+            byte[] value = (request.productName().trim() + "|" + request.cardType().name() + "|" + request.quantity()
+                    + "|" + request.annualFee().stripTrailingZeros().toPlainString() + "|"
+                    + (request.annualInterestRate() == null ? "" : request.annualInterestRate().stripTrailingZeros().toPlainString()))
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
             return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value));
         } catch (java.security.NoSuchAlgorithmException exception) {
