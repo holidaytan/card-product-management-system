@@ -1,5 +1,6 @@
 package com.assessment.card_product_management.migration;
 
+import com.assessment.card_product_management.cardproduct.CardProductRepository;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
+import java.math.BigDecimal;
 
 @SpringBootTest
 class FlywayMigrationIntegrationTest {
@@ -16,6 +19,9 @@ class FlywayMigrationIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private CardProductRepository cardProductRepository;
 
     @Test
     void appliedMigrationsAreValidAndCardProductsAreSeeded() {
@@ -67,5 +73,16 @@ class FlywayMigrationIntegrationTest {
 
         assertThat(validSeededPricingCount).isEqualTo(30);
         assertThat(debitProductsWithInterest).isZero();
+    }
+
+    @Test
+    void mapsSeededPricingThroughTheJpaEntity() {
+        var creditProduct = cardProductRepository.findById(1L).orElseThrow();
+        var debitProduct = cardProductRepository.findById(16L).orElseThrow();
+
+        assertThat(creditProduct.getAnnualFee()).isEqualByComparingTo(new BigDecimal("80.00"));
+        assertThat(creditProduct.getAnnualInterestRate()).isEqualByComparingTo(new BigDecimal("15.00"));
+        assertThat(creditProduct.getCurrencyCode()).isEqualTo("MYR");
+        assertThat(debitProduct.getAnnualInterestRate()).isNull();
     }
 }

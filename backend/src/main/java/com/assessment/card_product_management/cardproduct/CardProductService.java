@@ -20,6 +20,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Service
 public class CardProductService {
@@ -73,6 +74,7 @@ public class CardProductService {
     @Transactional
     @CacheEvict(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, allEntries = true)
     public CardProductResponse createCardProduct(CreateCardProductRequest request, String idempotencyKey) {
+        validatePricing(request.cardType(), request.annualFee(), request.annualInterestRate());
         String requestHash = idempotencyKey == null ? null : requestHash(request);
         if (idempotencyKey != null) {
             var existingRecord = idempotencyRecordRepository.findById(idempotencyKey);
@@ -91,6 +93,8 @@ public class CardProductService {
                 request.productName().trim(),
                 request.cardType(),
                 request.quantity(),
+                request.annualFee(),
+                request.annualInterestRate(),
                 LocalDateTime.now(applicationClock)
         );
         CardProduct savedProduct = cardProductRepository.saveAndFlush(product);
@@ -112,10 +116,13 @@ public class CardProductService {
         if (!product.getVersion().equals(request.version())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Card product has been modified; refresh and retry");
         }
+        validatePricing(request.cardType(), request.annualFee(), request.annualInterestRate());
         product.update(
                 request.productName().trim(),
                 request.cardType(),
                 request.quantity(),
+                request.annualFee(),
+                request.annualInterestRate(),
                 LocalDateTime.now(applicationClock)
         );
         return CardProductResponse.from(cardProductRepository.saveAndFlush(product));
@@ -134,7 +141,9 @@ public class CardProductService {
                 "|",
                 request.productName().trim(),
                 request.cardType().name(),
-                request.quantity().toString()
+                request.quantity().toString(),
+                request.annualFee().stripTrailingZeros().toPlainString(),
+                request.annualInterestRate() == null ? "" : request.annualInterestRate().stripTrailingZeros().toPlainString()
         );
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256")
@@ -142,6 +151,19 @@ public class CardProductService {
             return java.util.HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is not available", exception);
+        }
+    }
+
+    private void validatePricing(CardType cardType, BigDecimal annualFee, BigDecimal annualInterestRate) {
+        if (annualFee == null || annualFee.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "annualFee must be zero or greater");
+        }
+        if (annualInterestRate != null && (annualInterestRate.signum() < 0
+                || annualInterestRate.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "annualInterestRate must be between 0 and 100");
+        }
+        if (cardType == CardType.DEBIT && annualInterestRate != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "annualInterestRate must be null for DEBIT cards");
         }
     }
 }

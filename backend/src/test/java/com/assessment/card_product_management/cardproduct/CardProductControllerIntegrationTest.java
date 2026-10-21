@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -51,13 +52,14 @@ class CardProductControllerIntegrationTest {
     @Test
     void getCardProductReturnsTheProduct() throws Exception {
         when(cardProductService.getCardProduct(1L)).thenReturn(
-                new CardProductResponse(1L, "Everyday Debit", CardType.DEBIT, 5, null, null, 0L)
+                new CardProductResponse(1L, "Everyday Debit", CardType.DEBIT, 5, BigDecimal.ZERO, null, "MYR", null, null, 0L)
         );
 
         mockMvc.perform(get("/api/v1/card-products/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.productName").value("Everyday Debit"));
+                .andExpect(jsonPath("$.productName").value("Everyday Debit"))
+                .andExpect(jsonPath("$.currencyCode").value("MYR"));
 
         verify(cardProductService).getCardProduct(1L);
     }
@@ -67,7 +69,7 @@ class CardProductControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/card-products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"productName":" ","cardType":"CREDIT","quantity":-1}
+                                {"productName":" ","cardType":"CREDIT","quantity":-1,"annualFee":-1,"annualInterestRate":101}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
@@ -78,23 +80,23 @@ class CardProductControllerIntegrationTest {
     void createCardProductReturnsCreatedAndForwardsIdempotencyKey() throws Exception {
         when(cardProductService.createCardProduct(
                 new com.assessment.card_product_management.cardproduct.dto.CreateCardProductRequest(
-                        "Everyday Credit", CardType.CREDIT, 5
+                        "Everyday Credit", CardType.CREDIT, 5, new BigDecimal("100.00"), new BigDecimal("15.00")
                 ),
                 "create-123"
-        )).thenReturn(new CardProductResponse(1L, "Everyday Credit", CardType.CREDIT, 5, null, null, 0L));
+        )).thenReturn(new CardProductResponse(1L, "Everyday Credit", CardType.CREDIT, 5, new BigDecimal("100.00"), new BigDecimal("15.00"), "MYR", null, null, 0L));
 
         mockMvc.perform(post("/api/v1/card-products")
                         .header("Idempotency-Key", "create-123")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"productName":"Everyday Credit","cardType":"CREDIT","quantity":5}
+                                {"productName":"Everyday Credit","cardType":"CREDIT","quantity":5,"annualFee":100.00,"annualInterestRate":15.00,"currencyCode":"USD"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1));
 
         verify(cardProductService).createCardProduct(
                 new com.assessment.card_product_management.cardproduct.dto.CreateCardProductRequest(
-                        "Everyday Credit", CardType.CREDIT, 5
+                        "Everyday Credit", CardType.CREDIT, 5, new BigDecimal("100.00"), new BigDecimal("15.00")
                 ),
                 "create-123"
         );
