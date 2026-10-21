@@ -6,4 +6,4 @@ spring:
 
 logging:
   level:
-    org.hibernate.SQL: DEBUG
+    com.assessment.card_product_management: INFO
