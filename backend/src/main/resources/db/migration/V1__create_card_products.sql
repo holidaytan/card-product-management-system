@@ -1,13 +1,15 @@
-CREATE TABLE card_products (
+CREATE TABLE dbo.card_products (
     id BIGINT IDENTITY(1, 1) NOT NULL,
     product_name NVARCHAR(150) NOT NULL,
     card_type VARCHAR(20) NOT NULL,
     quantity INT NOT NULL
         CONSTRAINT DF_card_products_quantity DEFAULT (0),
     created_at DATETIME2(3) NOT NULL
-        CONSTRAINT DF_card_products_created_at DEFAULT (SYSUTCDATETIME()),
+        CONSTRAINT DF_card_products_created_at
+            DEFAULT CONVERT(DATETIME2(3), SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE 'Singapore Standard Time'),
     updated_at DATETIME2(3) NOT NULL
-        CONSTRAINT DF_card_products_updated_at DEFAULT (SYSUTCDATETIME()),
+        CONSTRAINT DF_card_products_updated_at
+            DEFAULT CONVERT(DATETIME2(3), SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE 'Singapore Standard Time'),
     version BIGINT NOT NULL
         CONSTRAINT DF_card_products_version DEFAULT (0),
 
