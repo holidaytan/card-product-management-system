@@ -65,9 +65,10 @@ export function DashboardAppBar({ currencies, selectedCurrency, loading, onCurre
           isOptionEqualToValue={(option, value) => option.code === value.code}
           getOptionLabel={(option) => `${currencySymbol(option)} ${option.code.toUpperCase()}`}
           renderOption={(props, option) => {
+            const { key, ...optionProps } = props
             const symbol = currencySymbol(option)
             const name = sentenceCaseCurrencyName(option.name)
-            return <li {...props} aria-label={`${symbol} ${option.code.toUpperCase()}, ${name}`}><Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1.25, py: 0.25 }}>
+            return <li key={key} {...optionProps} aria-label={`${symbol} ${option.code.toUpperCase()}, ${name}`}><Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1.25, py: 0.25 }}>
               <Typography component="span" aria-hidden="true" sx={{ flex: '0 0 28px', color: 'text.secondary', fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>{symbol}</Typography>
               <Box><Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{option.code.toUpperCase()}</Typography><Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.25 }}>{name}</Typography></Box>
             </Box></li>
