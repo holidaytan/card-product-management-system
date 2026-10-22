@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=TESTDB;encrypt=true;trustServerCertificate=true
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD}
+
+logging:
+  level:
+    com.assessment.card_product_management: INFO
