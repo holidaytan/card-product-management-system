@@ -1,26 +1,50 @@
 {
   "info": {
     "name": "Card Product Management API",
-    "description": "Import this collection, start the backend on port 8080, then run the requests in order. Set productId and version after creating a product.",
+    "description": "Import this collection after starting CardOps on port 8080. Currency endpoints are server-side Frankfurter integrations; Postman calls CardOps, never Frankfurter directly.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "productId", "value": "1" },
     { "key": "version", "value": "0" },
-    { "key": "idempotencyKey", "value": "postman-create-001" }
+    { "key": "idempotencyKey", "value": "postman-create-001" },
+    { "key": "zeroQuantityProductId", "value": "" },
+    { "key": "nonZeroQuantityProductId", "value": "1" }
   ],
   "item": [
     {
-      "name": "Card products",
+      "name": "Card Products",
       "item": [
         {
           "name": "List products - page 1",
-          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=0" }
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=0" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('page contains no more than 10 records', () => pm.expect(pm.response.json().content.length).to.be.at.most(10));"] } }]
+        },
+        {
+          "name": "List products - page 2",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=1" }
+        },
+        {
+          "name": "Search products",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=0&name=platinum" }
+        },
+        {
+          "name": "Filter products",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=0&type=CREDIT" }
+        },
+        {
+          "name": "Combined search and filter",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products?page=0&name=card&type=CREDIT" }
         },
         {
           "name": "Get product by ID",
           "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products/{{productId}}" }
+        },
+        {
+          "name": "Product summary",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/card-products/summary" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('summary fields exist', () => { const body = pm.response.json(); pm.expect(body).to.have.property('totalProducts'); pm.expect(body).to.have.property('totalAvailableInventory'); });"] } }]
         },
         {
           "name": "Create credit card product",
@@ -35,7 +59,8 @@
               "raw": "{\n  \"productName\": \"Postman Rewards Card\",\n  \"cardType\": \"CREDIT\",\n  \"quantity\": 25,\n  \"annualFee\": 100.00,\n  \"annualInterestRate\": 15.00\n}"
             },
             "url": "{{baseUrl}}/api/v1/card-products"
-          }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 201', () => pm.response.to.have.status(201));", "const body = pm.response.json(); pm.collectionVariables.set('productId', body.id); pm.collectionVariables.set('version', body.version);"] } }]
         },
         {
           "name": "Update product",
@@ -47,24 +72,43 @@
               "raw": "{\n  \"productName\": \"Postman Rewards Card Updated\",\n  \"cardType\": \"CREDIT\",\n  \"quantity\": 30,\n  \"annualFee\": 120.00,\n  \"annualInterestRate\": 15.50,\n  \"version\": {{version}}\n}"
             },
             "url": "{{baseUrl}}/api/v1/card-products/{{productId}}"
-          }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('quantity is non-negative', () => pm.expect(pm.response.json().quantity).to.be.at.least(0));"] } }]
         },
         {
-          "name": "Delete product",
-          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/card-products/{{productId}}" }
+          "name": "Create zero-quantity deletion candidate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Idempotency-Key", "value": "postman-zero-delete-001" }],
+            "body": { "mode": "raw", "raw": "{\n  \"productName\": \"Postman Zero Quantity Card\",\n  \"cardType\": \"DEBIT\",\n  \"quantity\": 0,\n  \"annualFee\": 0,\n  \"annualInterestRate\": null\n}" },
+            "url": "{{baseUrl}}/api/v1/card-products"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('zeroQuantityProductId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Delete zero-quantity product",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/card-products/{{zeroQuantityProductId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Attempt to delete non-zero product",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/card-products/{{nonZeroQuantityProductId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('non-zero inventory is rejected', () => pm.response.to.have.status(409));"] } }]
         }
       ]
     },
     {
-      "name": "Exchange rates",
+      "name": "Exchange Rates / Third-Party Integration",
       "item": [
         {
           "name": "List available currencies",
-          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates/currencies" }
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates/currencies" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('catalogue is an array', () => pm.expect(pm.response.json()).to.be.an('array'));"] } }]
         },
         {
           "name": "MYR to USD",
-          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates?to=USD" }
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/exchange-rates?to=USD" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('rate response fields exist', () => { const body = pm.response.json(); pm.expect(body).to.have.property('rate'); pm.expect(body).to.have.property('targetCurrency', 'USD'); });"] } }]
         },
         {
           "name": "MYR to SGD",

@@ -2,6 +2,7 @@ package com.assessment.card_product_management.cardproduct;
 
 import com.assessment.card_product_management.cardproduct.dto.CardProductPageResponse;
 import com.assessment.card_product_management.cardproduct.dto.CardProductResponse;
+import com.assessment.card_product_management.cardproduct.dto.CardProductSummaryResponse;
 import com.assessment.card_product_management.config.SecurityConfig;
 import com.assessment.card_product_management.error.ApiExceptionHandler;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ class CardProductControllerIntegrationTest {
 
     @Test
     void listCardProductsReturnsThePaginationResponse() throws Exception {
-        when(cardProductService.getCardProducts(0)).thenReturn(
+        when(cardProductService.getCardProducts(0, null, null)).thenReturn(
                 new CardProductPageResponse(List.of(), 0, 10, 30, 3, true, false)
         );
 
@@ -46,7 +47,39 @@ class CardProductControllerIntegrationTest {
                 .andExpect(jsonPath("$.size").value(10))
                 .andExpect(jsonPath("$.totalElements").value(30));
 
-        verify(cardProductService).getCardProducts(0);
+        verify(cardProductService).getCardProducts(0, null, null);
+    }
+
+    @Test
+    void listCardProductsForwardsTrimmedSearchAndCardType() throws Exception {
+        when(cardProductService.getCardProducts(0, "platinum", CardType.CREDIT)).thenReturn(
+                new CardProductPageResponse(List.of(), 0, 10, 0, 0, true, true)
+        );
+
+        mockMvc.perform(get("/api/v1/card-products?page=0&type=credit").param("name", " platinum "))
+                .andExpect(status().isOk());
+
+        verify(cardProductService).getCardProducts(0, "platinum", CardType.CREDIT);
+    }
+
+    @Test
+    void listCardProductsRejectsInvalidCardTypeFilter() throws Exception {
+        mockMvc.perform(get("/api/v1/card-products?type=PREPAID"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void returnsDatabaseWideProductSummary() throws Exception {
+        when(cardProductService.getCardProductSummary()).thenReturn(
+                new CardProductSummaryResponse(34L, 3_250L)
+        );
+
+        mockMvc.perform(get("/api/v1/card-products/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalProducts").value(34))
+                .andExpect(jsonPath("$.totalAvailableInventory").value(3250));
+
+        verify(cardProductService).getCardProductSummary();
     }
 
     @Test
