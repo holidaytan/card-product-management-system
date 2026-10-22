@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class CardProductServiceTest {
@@ -53,13 +54,13 @@ class CardProductServiceTest {
     @Test
     void returnsTenRecordsPerPageSortedByIdAscending() {
         List<CardProduct> products = List.of(product(1L, 0L), product(2L, 0L));
-        when(cardProductRepository.findAll(any(Pageable.class)))
+        when(cardProductRepository.findAllByFilters(any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(products, PageRequest.of(2, 10), 32));
 
         var response = cardProductService.getCardProducts(2);
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(cardProductRepository).findAll(pageableCaptor.capture());
+        verify(cardProductRepository).findAllByFilters(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(10);
@@ -72,6 +73,40 @@ class CardProductServiceTest {
     }
 
     @Test
+    void appliesNameAndCardTypeFiltersAtTheRepositoryLevel() {
+        when(cardProductRepository.findAllByFilters(org.mockito.ArgumentMatchers.eq("platinum"), org.mockito.ArgumentMatchers.eq(CardType.CREDIT), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(product(1L, 0L)), PageRequest.of(0, 10), 1));
+
+        var response = cardProductService.getCardProducts(0, "platinum", CardType.CREDIT);
+
+        assertThat(response.totalElements()).isEqualTo(1);
+        verify(cardProductRepository).findAllByFilters(org.mockito.ArgumentMatchers.eq("platinum"), org.mockito.ArgumentMatchers.eq(CardType.CREDIT), any(Pageable.class));
+    }
+
+    @Test
+    void appliesANameFilterWithAccurateFilteredTotals() {
+        when(cardProductRepository.findAllByFilters(org.mockito.ArgumentMatchers.eq("platinum"), org.mockito.ArgumentMatchers.isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(product(1L, 0L)), PageRequest.of(0, 10), 11));
+
+        var response = cardProductService.getCardProducts(0, "platinum", null);
+
+        assertThat(response.totalElements()).isEqualTo(11);
+        assertThat(response.totalPages()).isEqualTo(2);
+        verify(cardProductRepository).findAllByFilters(org.mockito.ArgumentMatchers.eq("platinum"), org.mockito.ArgumentMatchers.isNull(), any(Pageable.class));
+    }
+
+    @Test
+    void appliesAnExactCardTypeFilter() {
+        when(cardProductRepository.findAllByFilters(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(CardType.DEBIT), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(product(1L, 0L)), PageRequest.of(0, 10), 1));
+
+        var response = cardProductService.getCardProducts(0, null, CardType.DEBIT);
+
+        assertThat(response.content()).hasSize(1);
+        verify(cardProductRepository).findAllByFilters(org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(CardType.DEBIT), any(Pageable.class));
+    }
+
+    @Test
     void returnsProductById() {
         when(cardProductRepository.findById(1L)).thenReturn(Optional.of(product(1L, 0L)));
 
@@ -79,6 +114,52 @@ class CardProductServiceTest {
 
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.productName()).isEqualTo("Everyday Debit");
+    }
+
+    @Test
+    void returnsDatabaseWideProductAndInventorySummary() {
+        CardProductSummaryProjection summary = mock(CardProductSummaryProjection.class);
+        when(summary.getTotalProducts()).thenReturn(34L);
+        when(summary.getTotalAvailableInventory()).thenReturn(3_250L);
+        when(cardProductRepository.getSummary()).thenReturn(summary);
+
+        var response = cardProductService.getCardProductSummary();
+
+        assertThat(response.totalProducts()).isEqualTo(34L);
+        assertThat(response.totalAvailableInventory()).isEqualTo(3_250L);
+        verify(cardProductRepository).getSummary();
+    }
+
+    @Test
+    void returnsZeroSummaryForAnEmptyDatabase() {
+        CardProductSummaryProjection summary = mock(CardProductSummaryProjection.class);
+        when(summary.getTotalProducts()).thenReturn(0L);
+        when(summary.getTotalAvailableInventory()).thenReturn(0L);
+        when(cardProductRepository.getSummary()).thenReturn(summary);
+
+        var response = cardProductService.getCardProductSummary();
+
+        assertThat(response.totalProducts()).isZero();
+        assertThat(response.totalAvailableInventory()).isZero();
+    }
+
+    @Test
+    void doesNotCacheSummaryResults() {
+        CardProductSummaryProjection beforeMutation = mock(CardProductSummaryProjection.class);
+        when(beforeMutation.getTotalProducts()).thenReturn(30L);
+        when(beforeMutation.getTotalAvailableInventory()).thenReturn(1_000L);
+        CardProductSummaryProjection afterMutation = mock(CardProductSummaryProjection.class);
+        when(afterMutation.getTotalProducts()).thenReturn(31L);
+        when(afterMutation.getTotalAvailableInventory()).thenReturn(1_025L);
+        when(cardProductRepository.getSummary()).thenReturn(beforeMutation, afterMutation);
+
+        var firstSummary = cardProductService.getCardProductSummary();
+        var secondSummary = cardProductService.getCardProductSummary();
+
+        assertThat(firstSummary.totalProducts()).isEqualTo(30L);
+        assertThat(secondSummary.totalProducts()).isEqualTo(31L);
+        assertThat(secondSummary.totalAvailableInventory()).isEqualTo(1_025L);
+        verify(cardProductRepository, org.mockito.Mockito.times(2)).getSummary();
     }
 
     @Test
@@ -123,11 +204,26 @@ class CardProductServiceTest {
     @Test
     void deletesExistingProduct() {
         CardProduct product = product(4L, 0L);
+        product.update("Everyday Debit", CardType.DEBIT, 0, BigDecimal.ZERO, null, LocalDateTime.now());
         when(cardProductRepository.findById(4L)).thenReturn(Optional.of(product));
 
         cardProductService.deleteCardProduct(4L);
 
         verify(cardProductRepository).delete(product);
+    }
+
+    @Test
+    void rejectsDeletionWhenProductStillHasInventory() {
+        CardProduct product = product(4L, 0L);
+        product.update("Everyday Debit", CardType.DEBIT, 1, BigDecimal.ZERO, null, LocalDateTime.now());
+        when(cardProductRepository.findById(4L)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> cardProductService.deleteCardProduct(4L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(exception -> ((ResponseStatusException) exception).getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        verify(cardProductRepository, never()).delete(any());
     }
 
     @Test

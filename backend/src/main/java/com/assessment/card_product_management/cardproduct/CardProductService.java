@@ -2,6 +2,7 @@ package com.assessment.card_product_management.cardproduct;
 
 import com.assessment.card_product_management.cardproduct.dto.CardProductPageResponse;
 import com.assessment.card_product_management.cardproduct.dto.CardProductResponse;
+import com.assessment.card_product_management.cardproduct.dto.CardProductSummaryResponse;
 import com.assessment.card_product_management.cardproduct.dto.CreateCardProductRequest;
 import com.assessment.card_product_management.cardproduct.dto.UpdateCardProductRequest;
 import com.assessment.card_product_management.config.CacheConfig;
@@ -42,9 +43,11 @@ public class CardProductService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, key = "#page", sync = true)
-    public CardProductPageResponse getCardProducts(int page) {
-        Page<CardProduct> products = cardProductRepository.findAll(
+    @Cacheable(cacheNames = CacheConfig.CARD_PRODUCT_PAGES_CACHE, key = "#page + ':' + (#name ?: '') + ':' + (#cardType ?: '')", sync = true)
+    public CardProductPageResponse getCardProducts(int page, String name, CardType cardType) {
+        Page<CardProduct> products = cardProductRepository.findAllByFilters(
+                name,
+                cardType,
                 PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.ASC, "id"))
         );
 
@@ -60,10 +63,24 @@ public class CardProductService {
     }
 
     @Transactional(readOnly = true)
+    public CardProductPageResponse getCardProducts(int page) {
+        return getCardProducts(page, null, null);
+    }
+
+    @Transactional(readOnly = true)
     public CardProductResponse getCardProduct(long id) {
         CardProduct product = cardProductRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
         return CardProductResponse.from(product);
+    }
+
+    @Transactional(readOnly = true)
+    public CardProductSummaryResponse getCardProductSummary() {
+        CardProductSummaryProjection summary = cardProductRepository.getSummary();
+        return new CardProductSummaryResponse(
+                summary.getTotalProducts(),
+                summary.getTotalAvailableInventory()
+        );
     }
 
     @Transactional
@@ -133,6 +150,12 @@ public class CardProductService {
     public void deleteCardProduct(long id) {
         CardProduct product = cardProductRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card product not found"));
+        if (product.getQuantity() > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Card product can only be deleted when quantity is zero"
+            );
+        }
         cardProductRepository.delete(product);
     }
 

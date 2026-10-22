@@ -11,8 +11,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = CardProductController.class)
@@ -26,6 +29,17 @@ class SecurityConfigIntegrationTest {
     void permitsCardProductApiForTheCurrentUnauthenticatedAssessmentScope() throws Exception {
         mockMvc.perform(get("/api/v1/card-products"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void permitsTheIdempotencyKeyHeaderForBrowserCreateRequests() throws Exception {
+        mockMvc.perform(options("/api/v1/card-products")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "content-type,idempotency-key"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Headers", containsString("idempotency-key")));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

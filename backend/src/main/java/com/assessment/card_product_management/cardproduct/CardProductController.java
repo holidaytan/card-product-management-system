@@ -2,6 +2,7 @@ package com.assessment.card_product_management.cardproduct;
 
 import com.assessment.card_product_management.cardproduct.dto.CardProductPageResponse;
 import com.assessment.card_product_management.cardproduct.dto.CardProductResponse;
+import com.assessment.card_product_management.cardproduct.dto.CardProductSummaryResponse;
 import com.assessment.card_product_management.cardproduct.dto.CreateCardProductRequest;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Locale;
+
 @RestController
 @Validated
 @RequestMapping("/api/v1/card-products")
@@ -33,9 +36,30 @@ public class CardProductController {
 
     @GetMapping
     public ResponseEntity<CardProductPageResponse> getCardProducts(
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be zero or greater") int page
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be zero or greater") int page,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String type
     ) {
-        return ResponseEntity.ok(cardProductService.getCardProducts(page));
+        return ResponseEntity.ok(cardProductService.getCardProducts(page, normalizeName(name), parseCardType(type)));
+    }
+
+    private String normalizeName(String name) {
+        if (name == null || name.isBlank()) return null;
+        return name.trim();
+    }
+
+    private CardType parseCardType(String type) {
+        if (type == null || type.isBlank()) return null;
+        try {
+            return CardType.valueOf(type.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "type must be CREDIT or DEBIT");
+        }
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<CardProductSummaryResponse> getCardProductSummary() {
+        return ResponseEntity.ok(cardProductService.getCardProductSummary());
     }
 
     @GetMapping("/{id}")

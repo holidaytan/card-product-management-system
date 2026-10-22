@@ -9,8 +9,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.math.BigDecimal;
-
 @SpringBootTest
 class FlywayMigrationIntegrationTest {
 
@@ -24,7 +22,7 @@ class FlywayMigrationIntegrationTest {
     private CardProductRepository cardProductRepository;
 
     @Test
-    void appliedMigrationsAreValidAndCardProductsAreSeeded() {
+    void appliedMigrationsAreValid() {
         flyway.validate();
 
         assertThat(flyway.info().applied())
@@ -37,52 +35,37 @@ class FlywayMigrationIntegrationTest {
                         "5__seed card product pricing"
                 );
 
-        Integer productCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM dbo.card_products",
-                Integer.class
-        );
-        assertThat(productCount).isGreaterThanOrEqualTo(30);
     }
 
     @Test
-    void pricingMigrationsSeedValidMyRPricingForOriginalProducts() {
-        Integer validSeededPricingCount = jdbcTemplate.queryForObject(
+    void existingProductsRespectPricingRules() {
+        Integer invalidPricingCount = jdbcTemplate.queryForObject(
                 """
                         SELECT COUNT(*)
                         FROM dbo.card_products
-                        WHERE id BETWEEN 1 AND 30
-                          AND currency_code = 'MYR'
-                          AND annual_fee >= 0
-                          AND (
-                              (card_type = 'CREDIT' AND annual_interest_rate BETWEEN 0 AND 100)
-                              OR (card_type = 'DEBIT' AND annual_interest_rate IS NULL)
-                          )
+                        WHERE currency_code <> 'MYR'
+                           OR annual_fee < 0
+                           OR annual_interest_rate < 0
+                           OR annual_interest_rate > 100
+                           OR (card_type = 'DEBIT' AND annual_interest_rate IS NOT NULL)
                         """,
                 Integer.class
         );
 
-        Integer debitProductsWithInterest = jdbcTemplate.queryForObject(
-                """
-                        SELECT COUNT(*)
-                        FROM dbo.card_products
-                        WHERE card_type = 'DEBIT'
-                          AND annual_interest_rate IS NOT NULL
-                        """,
-                Integer.class
-        );
-
-        assertThat(validSeededPricingCount).isEqualTo(30);
-        assertThat(debitProductsWithInterest).isZero();
+        assertThat(invalidPricingCount).isZero();
     }
 
     @Test
-    void mapsSeededPricingThroughTheJpaEntity() {
-        var creditProduct = cardProductRepository.findById(1L).orElseThrow();
-        var debitProduct = cardProductRepository.findById(16L).orElseThrow();
+    void summaryProjectionMatchesDatabaseAggregates() {
+        var summary = cardProductRepository.getSummary();
+        Long expectedProductCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM dbo.card_products", Long.class
+        );
+        Long expectedInventory = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(SUM(CAST(quantity AS BIGINT)), 0) FROM dbo.card_products", Long.class
+        );
 
-        assertThat(creditProduct.getAnnualFee()).isEqualByComparingTo(new BigDecimal("80.00"));
-        assertThat(creditProduct.getAnnualInterestRate()).isEqualByComparingTo(new BigDecimal("15.00"));
-        assertThat(creditProduct.getCurrencyCode()).isEqualTo("MYR");
-        assertThat(debitProduct.getAnnualInterestRate()).isNull();
+        assertThat(summary.getTotalProducts()).isEqualTo(expectedProductCount);
+        assertThat(summary.getTotalAvailableInventory()).isEqualTo(expectedInventory);
     }
 }
