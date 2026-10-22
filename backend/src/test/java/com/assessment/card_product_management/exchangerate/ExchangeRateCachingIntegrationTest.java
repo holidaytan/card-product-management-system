@@ -32,9 +32,6 @@ import static org.mockito.Mockito.when;
 class ExchangeRateCachingIntegrationTest {
 
     @Autowired
-    private CurrencyCatalogueService currencyCatalogueService;
-
-    @Autowired
     private ExchangeRateService exchangeRateService;
 
     @Autowired
